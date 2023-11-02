@@ -1,0 +1,5 @@
+train: D:\yolov5\VOCdevkit\images\train
+val: D:\yolov5\VOCdevkit\images\val
+
+nc: 4
+names: ['unqualified_left', 'qualified_left', 'unqualified_right', 'qualified_right']
