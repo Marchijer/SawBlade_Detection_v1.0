@@ -1,0 +1,8 @@
+#train: VOCdevkit/images/train
+#val: VOCdevkit/images/val
+
+train: D:\yolov5\VOCdevkit\sawBladeV4\images\train
+val: D:\yolov5\VOCdevkit\sawBladeV4\images\val
+
+nc: 4
+names: ['left_unqualified', 'left_qualified', 'right_unqualified', 'right_qualified']

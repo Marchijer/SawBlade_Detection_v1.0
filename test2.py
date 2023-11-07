@@ -1,12 +1,9 @@
 from Detect import detect
 import cv2
 
-if __name__ == "__main__":
-    path = r"E:\sawBlade\unqualified\big8\big8_right_scrap\top\039.bmp"
-    mat = cv2.imread(path)
-    # bond, classes = detect2(mat)
-    # print(bond)
-    # print(classes)
-    img = detect(mat)
-    cv2.imshow("pic", img)
-    cv2.waitKey(0)
+img = cv2.imread(r"E:\sawBlade\all\00001.bmp")
+img = detect(img)
+cv2.namedWindow("pic", cv2.WINDOW_NORMAL)
+cv2.resizeWindow("pic", 1000, 800)
+cv2.imshow("pic", img)
+cv2.waitKey()

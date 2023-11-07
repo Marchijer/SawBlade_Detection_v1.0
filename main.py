@@ -55,58 +55,70 @@ class MainWindow(QMainWindow):
         self.observer2.start()
 
     def update_frame(self):
-        global F1ImgGet, F2ImgGet  # 声明全局变量
-        if F1ImgGet and F2ImgGet:
-            # 在界面上显示最新的图片
-            latest_file = max(self.observed_files, key=os.path.getctime, default=None)
-            latest_file2 = max(self.observed_files2, key=os.path.getctime, default=None)
-            if latest_file:
-                if latest_file == self.latest_file:
-                    print("Same")
+        # 判断是否需要更新帧
+        global F1ImgGet, F2ImgGet
+        if not F1ImgGet or not F2ImgGet:
+            return
+
+        # 在界面上显示最新的图片
+        latest_file = max(self.observed_files, key=os.path.getctime, default=None)
+        latest_file2 = max(self.observed_files2, key=os.path.getctime, default=None)
+        if latest_file:
+            if latest_file == self.latest_file:
+                print("Same")
+            else:
+                # 使用 OpenCV 读取图片
+                img1 = cv2.imread(latest_file)
+                img2 = cv2.imread(latest_file2)
+
+                height, width, channel = img1.shape
+                bytes_per_line = 3 * width
+
+                # 展示图片
+                pixmap1 = QPixmap.fromImage(QImage(img1.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
+                self.image1.setPixmap(pixmap1.scaled(self.image1_detect.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+                pixmap2 = QPixmap.fromImage(QImage(img2.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
+                self.image2.setPixmap(pixmap2.scaled(self.image2_detect.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+                # 无关区域去除
+
+
+                # 返回处理后图片和一些关于图片中缺陷信息的字典
+                img1_det, dets1 = detect_and_annotate(img1)
+                img2_det, dets2 = detect_and_annotate(img2)
+                print(f"1: {dets1}")
+                print(f"2: {dets2}")
+
+                # 展示检测结果
+                height, width, channel = img1_det.shape
+                bytes_per_line = 3 * width
+
+                pixmap1 = QPixmap.fromImage(QImage(img1_det.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
+                self.image1_detect.setPixmap(pixmap1.scaled(self.image1.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+                pixmap2 = QPixmap.fromImage(QImage(img2_det.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
+                self.image2_detect.setPixmap(pixmap2.scaled(self.image2.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+                # 判断该零件是否有缺陷
+                bad_sawBlade = False
+                for det in dets1:
+                    if det['class'] == 'left_unqualified' or det['class'] == 'right_unqualified':
+                        bad_sawBlade = True
+                        break
+                for det in dets2:
+                    if det['class'] == 'left_unqualified' or det['class'] == 'right_unqualified':
+                        bad_sawBlade = True
+                        break
+
+                if bad_sawBlade:
+                    self.result.setStyleSheet("font-size: 36px; color: red;background-color: white;")
+                    self.result.setText("有缺陷")
+                    data = bytes.fromhex('FF00F1')
+                    # ser.write(data)
                 else:
-                    img1 = cv2.imread(latest_file)  # 使用 OpenCV 读取图片
-                    img2 = cv2.imread(latest_file2)
-
-                    height, width, channel = img1.shape
-                    bytes_per_line = 3 * width
-                    pixmap1 = QPixmap.fromImage(QImage(img1.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
-                    self.image1.setPixmap(pixmap1.scaled(self.image1_detect.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-
-                    pixmap2 = QPixmap.fromImage(QImage(img2.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
-                    self.image2.setPixmap(pixmap2.scaled(self.image2_detect.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-
-                    img1_det, dets1 = detect_and_annotate(img1)  # 返回处理后图片和一些关于图片中缺陷信息的字典
-                    img2_det, dets2 = detect_and_annotate(img2)
-                    print(f"1: {dets1}")
-                    print(f"2: {dets2}")
-
-                    height, width, channel = img1_det.shape
-                    bytes_per_line = 3 * width
-
-                    pixmap1 = QPixmap.fromImage(QImage(img1_det.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
-                    self.image1_detect.setPixmap(pixmap1.scaled(self.image1.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-
-                    pixmap2 = QPixmap.fromImage(QImage(img2_det.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
-                    self.image2_detect.setPixmap(pixmap2.scaled(self.image2.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-
-                    bad_sawBlade = False
-                    for det in dets1:
-                        if det['class'] == 'unqualified_left' or det['class'] == 'unqualified_right':
-                            bad_sawBlade = True
-                            break
-                    for det in dets2:
-                        if det['class'] == 'unqualified_left' or det['class'] == 'unqualified_right':
-                            bad_sawBlade = True
-                            break
-
-                    if bad_sawBlade:
-                        self.result.setStyleSheet("font-size: 36px; color: red;background-color: white;")
-                        self.result.setText("有缺陷")
-                        data = bytes.fromhex('FF00F1')
-                        # ser.write(data)
-                    else:
-                        self.result.setStyleSheet("font-size: 36px; color: green;background-color: white;")
-                        self.result.setText("无缺陷")
+                    self.result.setStyleSheet("font-size: 36px; color: green;background-color: white;")
+                    self.result.setText("无缺陷")
 
             F1ImgGet, F2ImgGet = False, False
 
