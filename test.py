@@ -1,147 +1,113 @@
+# 这个文件主要负责将图片检测出来
+import multiprocessing
 
-import os
-import time
-import cv2
-from PyQt5.QtWidgets import QMainWindow, QApplication, QLabel
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QPixmap, QImage
-from PyQt5.uic import loadUi
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-# from d1old import detect  # 自定义的一个接口
-# import serial
-# from dl import detect_left,detect_top
+import numpy as np
+import torch
+from scipy.constants import pt
+from torch.masked.maskedtensor._ops_refs import stride
 
-# ser = serial.Serial('COM7',19200,timeout = 1)
+from utils.augmentations import letterbox
 
+from models.common import DetectMultiBackend
+from utils.general import (LOGGER, check_img_size, cv2, non_max_suppression, scale_boxes)
+from utils.plots import Annotator, colors
+from utils.torch_utils import select_device, time_sync
 
-# os.chdir(r"D:\jupianviews\jupian")
+weights1 = r'./models/top/best.pt'  # 权重文件地址   .pt文件
+weights2 = r'./models/left/best.pt'
+data1 = r'./models/top/sawBlade.yaml'  # 标签文件地址   .yaml文件
+data2 = r'./models/left/sawBlade.yaml'
 
+imgsz = (640, 640)  # 输入图片的大小 默认640(pixels)
+conf_thres = 0.4  # object置信度阈值 默认0.25  用在nms中
+iou_thres = 0.45  # 做nms的iou阈值 默认0.45   用在nms中
+max_det = 1000  # 每张图片最多的目标数量  用在nms中
+device = '0'  # 设置代码执行的设备 cuda device, i.e. 0 or 0,1,2,3 or cpu
+classes = None  # 在nms中是否是只保留某些特定的类 默认是None 就是所有类只要满足条件都可以保留 --class 0, or --class 0 2 3
+agnostic_nms = False  # 进行nms是否也除去不同类别之间的框 默认False
+augment = False  # 预测是否也要采用数据增强 TTA 默认False
+visualize = False  # 特征图可视化 默认FALSE
+half = False  # 是否使用半精度 Float16 推理 可以缩短推理时间 但是默认是False
+dnn = False  # 使用OpenCV DNN进行ONNX推理
+line_thickness = 1
+hide_conf = False
+hide_labels = False
 
-F1ImgGet = False
-F2ImgGet = False
+# 获取设备
+device = select_device(device)
 
-
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super(MainWindow, self).__init__()
-        loadUi("HDU_Detect2.ui", self)
-        self.image1.setAlignment(Qt.AlignCenter)
-        self.image2.setAlignment(Qt.AlignCenter)
-        self.image1_detect.setAlignment(Qt.AlignCenter)
-        self.image2_detect.setAlignment(Qt.AlignCenter)
-
-        # 创建 QTimer 对象
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_frame)
-        self.timer.start(300)
-
-        # 文件夹路径
-        self.folder_to_watch = r".\images1"  # 替换为实际的文件夹路径
-        self.folder_to_watch2 = r".\images2"  # 替换为实际的文件夹路径
-        self.observed_files = set()
-        self.observed_files2 = set()
-        self.latest_file = None  # 添加一个变量来保存上一次的 latest_file
-        self.latest_file2 = None  # 添加一个变量来保存上一次的 latest_file
-        self.start_watchdog()  # 启动监视
-
-    def start_watchdog(self):
-        # 创建监视器对象
-        event_handler = MyHandler(self)
-        self.observer = Observer()
-        # 设置 recursive 参数为 False，表示不递归监视子文件夹。
-        self.observer.schedule(event_handler, path=self.folder_to_watch, recursive=False)
-        self.observer.start()
-        event_handler2 = MyHandler2(self)
-        self.observer2 = Observer()
-        # 设置 recursive 参数为 False，表示不递归监视子文件夹。
-        self.observer2.schedule(event_handler2, path=self.folder_to_watch2, recursive=False)
-        self.observer2.start()
-
-    def update_frame(self):
-        global F1ImgGet, F2ImgGet  # 声明全局变量
-        if F1ImgGet and F2ImgGet:
-            # 在界面上显示最新的图片
-            latest_file = max(self.observed_files, key=os.path.getctime, default=None)
-            latest_file2 = max(self.observed_files2, key=os.path.getctime, default=None)
-            if latest_file:
-                if latest_file == self.latest_file:
-                    print("Same")
-                else:
-                    img1 = cv2.imread(latest_file)  # 使用 OpenCV 读取图片
-                    img2 = cv2.imread(latest_file2)
-
-                    height, width, channel = img1.shape
-                    bytes_per_line = 3 * width
-                    pixmap1 = QPixmap.fromImage(QImage(img1.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
-                    self.image1_detect.setPixmap(pixmap1.scaled(self.image1_detect.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-
-                    pixmap2 = QPixmap.fromImage(QImage(img2.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
-                    self.image2_detect.setPixmap(pixmap2.scaled(self.image2_detect.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-
-                    # img1, label_counts = detect(concatenated_img)  # 返回处理后图片和一些关于图片中缺陷信息的字典
-
-                    height, width, channel = img1.shape
-                    bytes_per_line = 3 * width
-
-                    pixmap1 = QPixmap.fromImage(QImage(img1.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
-                    self.image1.setPixmap(pixmap1.scaled(self.image1.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-
-                    pixmap2 = QPixmap.fromImage(QImage(img2.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
-                    self.image2.setPixmap(pixmap2.scaled(self.image2.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                    # self.judge(label_counts)
-
-            F1ImgGet, F2ImgGet = False, False
-
-    def judge(self, label_counts):
-        # 判断缺陷信息字典中是否有缺陷
-        if sum(label_counts.values()) > 0:  # 修改这里的代码，将values()方法加上
-            self.doorend.setStyleSheet("font-size: 26px; color: red;background-color: white;")
-            self.doorend.setText("有缺陷")
-            data = bytes.fromhex('FF00F1')
-            # ser.write(data)
-        else:
-            self.doorend.setStyleSheet("font-size: 26px; color: green;background-color: white;")
-            self.doorend.setText("无缺陷")
+# 载入模型
+modelL = DetectMultiBackend(weights1, device=device, dnn=dnn, data=data1)
+modelT = DetectMultiBackend(weights2, device=device, dnn=dnn, data=data2)
 
 
+# 传入名为img的图片,img原图，im0
+def detect(model, img):
+    global imgsz, half
+    half &= (model.pt or model.jit or model.onnx or model.engine) and device.type != 'cpu'  # FP16 supported on limited backends with CUDA
+    if model.pt or model.jit:
+        model.model.half() if half else model.model.float()
+    # model.warmup(imgsz=(1, 3, *imgsz), half=False)  # warmup
+    dt, seen = [0.0, 0.0, 0.0], 0
+    im0 = img
+    imgsz = check_img_size(imgsz, s=model.stride)
+    im = letterbox(im0, imgsz, model.stride, auto=model.pt)[0]
+    im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+    im = np.ascontiguousarray(im)
+    t1 = time_sync()
+    im = torch.from_numpy(im).to(device)
+    im = im.half() if half else im.float()  # uint8 to fp16/32
+    im /= 255  # 0 - 255 to 0.0 - 1.0
+    if len(im.shape) == 3:
+        im = im[None]  # expand for batch dim
+    t2 = time_sync()
+    dt[0] += t2 - t1
+    # 预测
+    pred = model(im, augment=augment, visualize=visualize)
+    t3 = time_sync()
+    dt[1] += t3 - t2
+    # NMS
+    pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
+    dt[2] += time_sync() - t3
+    im0 = np.ascontiguousarray(im0)
+    annotator = Annotator(im0, line_width=10, example=str(model.names))
+    for i, det in enumerate(pred):
+        if len(det):
+            # Rescale boxes from img_size to im0 size
+            det[:, :4] = scale_boxes(im.shape[2:], det[:, :4], im0.shape).round()
+            # Print results
+            for c in det[:, 5].unique():
+                n = (det[:, 5] == c).sum()  # detections per class
+            # Write results
+            for *xyxy, conf, cls in reversed(det):
+                c = int(cls)  # integer class
+                label = None if hide_labels else (model.names[c] if hide_conf else f'{model.names[c]} {conf:.2f}')
+                annotator.box_label(xyxy, label, color=colors(c, True))
+    im0 = annotator.result()
+    LOGGER.info(f'({t3 - t2:.3f}s)')
+    return im0
 
-class MyHandler(FileSystemEventHandler):
-    def __init__(self, main_window):
-        super().__init__()
-        self.main_window = main_window
 
-    def on_created(self, event):
-        global F1ImgGet  # 声明全局变量
-        if not F1ImgGet:
-            if not event.is_directory and event.src_path.endswith(('.jpg', '.png', '.jpeg', '.bmp')):
-                # 添加文件到观察集合，确保文件已完全写入磁盘
-                time.sleep(0.5)  # 这里的延迟可以根据需要调整
-                print("文件夹1图片路径：", event.src_path)
-                self.main_window.observed_files.add(event.src_path)
-                F1ImgGet = True # 第一个文件夹已经进行了更新
+def inference1(model, img):
+    img = detect(model, img)
+    cv2.imshow("left", img)
+    cv2.waitKey()
 
 
-class MyHandler2(FileSystemEventHandler):
-    def __init__(self, main_window):
-        super().__init__()
-        self.main_window = main_window
+def inference2(model, img):
+    img = detect(model, img)
+    cv2.imshow("top", img)
+    cv2.waitKey()
 
-    def on_created(self, event):
-        global F2ImgGet  # 声明全局变量
-        if not F2ImgGet:
-            if not event.is_directory and event.src_path.endswith(('.jpg', '.png', '.jpeg', '.bmp')):
-                # 添加文件到观察集合，确保文件已完全写入磁盘
-                time.sleep(0.5)  # 这里的延迟可以根据需要调整
-                print("文件夹2图片路径：", event.src_path)
-                self.main_window.observed_files2.add(event.src_path)
-                F2ImgGet = True # 第一个文件夹已经进行了更新
 
 if __name__ == "__main__":
-    try:
-        app = QApplication([])
-        window = MainWindow()
-        window.show()
-        app.exec_()
-    except Exception as e:
-        print("An error occurred:", str(e))
+    image1 = cv2.imread(r"E:\sawBlade\all\00019.bmp")
+    image2 = cv2.imread(r"E:\sawBlade\all\00285.bmp")
+    t1 = multiprocessing.Process(target=inference1, args=(modelL, image1))
+    t2 = multiprocessing.Process(target=inference2, args=(modelT, image2))
+
+    t1.start()
+    t2.start()
+
+    t1.join()
+    t2.join()

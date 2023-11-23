@@ -12,8 +12,8 @@ from utils.general import (LOGGER, check_img_size, cv2, non_max_suppression, sca
 from utils.plots import Annotator, colors
 from utils.torch_utils import select_device, time_sync
 
-weights = r'.\models\sawBladev4\best.pt'  # 权重文件地址   .pt文件
-data = r'.\models\sawBladev4\sawBladev4.yaml'  # 标签文件地址   .yaml文件
+weights = r'.\models\sawBlade-seg\best.pt'  # 权重文件地址   .pt文件
+data = r'.\models\sawBlade-seg\sawBlade-seg.yaml'  # 标签文件地址   .yaml文件
 
 imgsz = (640, 640)  # 输入图片的大小 默认640(pixels)
 conf_thres = 0.4  # object置信度阈值 默认0.25  用在nms中
@@ -44,12 +44,12 @@ if pt or jit:
     model.model.half() if half else model.model.float()
 
 
-#传入名为img的图片,img原图，im0
+# 传入名为img的图片,img原图，im0
 def detect(img):
-    #model.warmup(imgsz=(1, 3, *imgsz), half=False)  # warmup
+    # model.warmup(imgsz=(1, 3, *imgsz), half=False)  # warmup
     dt, seen = [0.0, 0.0, 0.0], 0
     im0 = img
-    im = letterbox(im0,imgsz,stride,auto=pt)[0]
+    im = letterbox(im0, imgsz, stride, auto=pt)[0]
     im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
     im = np.ascontiguousarray(im)
     t1 = time_sync()
@@ -60,15 +60,15 @@ def detect(img):
         im = im[None]  # expand for batch dim
     t2 = time_sync()
     dt[0] += t2 - t1
-    #预测
+    # 预测
     pred = model(im, augment=augment, visualize=visualize)
     t3 = time_sync()
     dt[1] += t3 - t2
-    #NMS
+    # NMS
     pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
     dt[2] += time_sync() - t3
     im0 = np.ascontiguousarray(im0)
-    annotator = Annotator(im0, line_width=line_thickness, example=str(names))
+    annotator = Annotator(im0, line_width=10, example=str(names))
     for i, det in enumerate(pred):
         if len(det):
             # Rescale boxes from img_size to im0 size
@@ -111,7 +111,7 @@ def detect_and_annotate(img):
     im0 = np.ascontiguousarray(im0)
 
     # 增加标签线宽度
-    line_width = 10   # 假设要增加线宽度为2
+    line_width = 10  # 假设要增加线宽度为2
 
     annotator = Annotator(im0, line_width=line_width, example=str(names))
 
@@ -141,7 +141,5 @@ def detect_and_annotate(img):
     LOGGER.info(f'({t3 - t2:.3f}s)')
 
     return im0, detections  # 返回带有标签的图像和检测结果列表
-
-
 
 
