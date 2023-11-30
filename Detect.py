@@ -12,8 +12,8 @@ from utils.general import (LOGGER, check_img_size, cv2, non_max_suppression, sca
 from utils.plots import Annotator, colors
 from utils.torch_utils import select_device, time_sync
 
-weights = r'.\models\sawBlade-seg\best.pt'  # 权重文件地址   .pt文件
-data = r'.\models\sawBlade-seg\sawBlade-seg.yaml'  # 标签文件地址   .yaml文件
+weights = r'.\models\sawBladev4\best.pt'  # 权重文件地址   .pt文件
+data = r'.\models\sawBladev4\sawBladev4.yaml'  # 标签文件地址   .yaml文件
 
 imgsz = (640, 640)  # 输入图片的大小 默认640(pixels)
 conf_thres = 0.4  # object置信度阈值 默认0.25  用在nms中
