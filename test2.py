@@ -4,6 +4,7 @@ import os
 import cv2
 import time
 import numpy as np
+from utils.plots import Annotator, colors
 
 
 def segImage(image):
@@ -28,25 +29,34 @@ def segImage(image):
 
 if __name__ == "__main__":
 
-    model2 = YOLO(r'.\models\sawBladev4\best.pt')
+    model = YOLO("models/seg/best.pt")
 
-    path = r"E:\sawBlade\all"
+    path = r"D:\sawBlade\sawBlade\images\train"
     paths = os.listdir(path)
+    cv2.namedWindow("pic", cv2.WINDOW_NORMAL)
     for file in paths:
         filepath = os.path.join(path, file)
         img = cv2.imread(filepath)
-        res = model2(img)
-        print(res)
-        time.sleep(5)
-
-        # # t1 = threading.Thread(target=detect1, args=(img, model1))
-        # t2 = threading.Thread(target=detect2, args=(img, model2))
-        #
-        # # t1.start()
-        # t2.start()
-        #
-        # # t1.join()
-        # t2.join()
+        cv2.resizeWindow("pic", img.shape[1] // 2, img.shape[0] // 2)
+        results = model(img)
+        boxes = results[0].boxes
+        print(boxes.conf)
+        cv2.imshow("pic", results[0].plot())
+        cv2.waitKey()
+        # 如何找到所有小于0.8的框，然后将其画出来呢
+        annotator = Annotator(im0, line_width=10, example=str(names))
+        for i, det in enumerate(pred):
+            if len(det):
+                # Rescale boxes from img_size to im0 size
+                det[:, :4] = scale_boxes(im.shape[2:], det[:, :4], im0.shape).round()
+                # Print results
+                for c in det[:, 5].unique():
+                    n = (det[:, 5] == c).sum()  # detections per class
+                # Write results
+                for *xyxy, conf, cls in reversed(det):
+                    c = int(cls)  # integer class
+                    label = None if hide_labels else (model.names[c] if hide_conf else f'{model.names[c]} {conf:.2f}')
+                    annotator.box_label(xyxy, label, color=colors(c, True))
 
 
 
