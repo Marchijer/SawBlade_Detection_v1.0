@@ -7,7 +7,7 @@ from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.uic import loadUi
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from v8Detect import detect, segment
+from v8Detect import segmentDetect
 # import serial
 
 # ser = serial.Serial('COM7',19200,timeout = 1)
@@ -20,7 +20,7 @@ F2ImgGet = False
 class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
-        loadUi("HDU_Detect2.ui", self)
+        loadUi("HDU_Detect.ui", self)
         self.image1.setAlignment(Qt.AlignCenter)
         self.image2.setAlignment(Qt.AlignCenter)
         self.image1_detect.setAlignment(Qt.AlignCenter)
@@ -75,25 +75,13 @@ class MainWindow(QMainWindow):
 
                 # 展示图片
                 pixmap1 = QPixmap.fromImage(QImage(img1.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
-                self.image1.setPixmap(pixmap1.scaled(self.image1_detect.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self.image1.setPixmap(pixmap1.scaled(self.image1.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
 
                 pixmap2 = QPixmap.fromImage(QImage(img2.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
-                self.image2.setPixmap(pixmap2.scaled(self.image2_detect.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self.image2.setPixmap(pixmap2.scaled(self.image2.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
 
-                print(1)
-                # 无关区域去除，只需要返回图片
-                segImg1 = segment(img1)
-                segImg2 = segment(img2)
-
-                cv2.imshow("pic1", segImg1)
-                cv2.imshow("pic2", segImg2)
-                cv2.waitKey()
-
-                # 返回处理后图片和一些关于图片中缺陷信息的字典
-                # res1 = detect(segImg1)
-                # res2 = detect(segImg2)
-                res1 = segImg1
-                res2 = segImg2
+                res1 = segmentDetect(img1)
+                res2 = segmentDetect(img2)
 
                 resImg1 = res1[0].plot()
                 resImg2 = res2[0].plot()
@@ -103,25 +91,25 @@ class MainWindow(QMainWindow):
                 bytes_per_line = 3 * width
 
                 pixmap1 = QPixmap.fromImage(QImage(resImg1.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
-                self.image1_detect.setPixmap(pixmap1.scaled(self.image1.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self.image1_detect.setPixmap(pixmap1.scaled(self.image1_detect.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
 
                 pixmap2 = QPixmap.fromImage(QImage(resImg2.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped())
-                self.image2_detect.setPixmap(pixmap2.scaled(self.image2.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self.image2_detect.setPixmap(pixmap2.scaled(self.image2_detect.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
 
                 # 判断该零件是否有缺陷
-                cls1 = res1[0].boxes.cls.item()
-                cls2 = res2[0].boxes.cls.item()
-                bad_sawBlade = False
-                for cls in cls1:
-                    if cls in (0, 2):
-                        bad_sawBlade = True
-                        break
-                for cls in cls2:
-                    if cls in (0, 2):
-                        bad_sawBlade = True
-                        break
+                def isBadSaw(results):
+                    bad = False
+                    for result in results:
+                        for box in result.boxes:
+                            if box.cls == 0 or box.cls == 2:
+                                bad = True
+                            elif box.conf < 0.5:
+                                bad = True
+                    return bad
 
-                if bad_sawBlade:
+                bad_saw = isBadSaw(res1) and isBadSaw(res2)
+
+                if bad_saw:
                     self.result.setStyleSheet("font-size: 36px; color: red;background-color: white;")
                     self.result.setText("有缺陷")
                     data = bytes.fromhex('FF00F1')

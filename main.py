@@ -21,7 +21,7 @@ F2ImgGet = False
 class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
-        loadUi("HDU_Detect2.ui", self)
+        loadUi("HDU_Detect.ui", self)
         self.image1.setAlignment(Qt.AlignCenter)
         self.image2.setAlignment(Qt.AlignCenter)
         self.image1_detect.setAlignment(Qt.AlignCenter)
