@@ -58,8 +58,8 @@ def segmentDetect(image):
 
 
 if __name__ == "__main__":
-    dirName = r"D:\sawBlade\sawBlade\images\train"
-    cv2.namedWindow("pic", cv2.WINDOW_NORMAL)
+    dirName = r"D:\sawBlade\sawBlade\image\01_good"
+    # cv2.namedWindow("pic", cv2.WINDOW_NORMAL)
     fileNames = os.listdir(dirName)
     for fileName in fileNames:
         path = os.path.join(dirName, fileName)
@@ -73,7 +73,7 @@ if __name__ == "__main__":
         cv2.waitKey()
 
         # res = seg(img)
-        # saveDir = r"D:\sawBlade\sawBlade\images\train_seg"
+        # saveDir = r"D:\sawBlade\sawBlade\img-seg\01"
         # saveFile = os.path.join(saveDir, fileName)
         # cv2.imwrite(saveFile, res)
         # print("save:", saveFile, end='\n\n=========\n')
