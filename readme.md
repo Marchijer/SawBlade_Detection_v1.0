@@ -82,5 +82,5 @@ Ensure the following configurations are set correctly in the script:
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Contact
-Maintainer Contact - [Email](mazhejie@hdu.edu.cn).
-GitHub: [https://github.com/Marchijer/SawBlade_Detection_v1.0.git]([https://github.com/yourusername](https://github.com/Marchijer/SawBlade_Detection_v1.0.git))
+Maintainer Contact - [Email](mazhejie@hdu.edu.cn)
+GitHub: [https://github.com/Marchijer/SawBlade_Detection_v1.0.git](https://github.com/Marchijer/SawBlade_Detection_v1.0.git)
