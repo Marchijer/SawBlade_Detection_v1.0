@@ -1,8 +1,0 @@
-#train: VOCdevkit/images/train
-#val: VOCdevkit/images/val
-
-train: D:\yolov5\VOCdevkit\images\train
-val: D:\yolov5\VOCdevkit\images\val
-
-nc: 2
-names: ['defect', 'normal']

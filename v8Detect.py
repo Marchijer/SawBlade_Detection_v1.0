@@ -6,74 +6,95 @@ import torch
 import queue
 import time
 
+# 输入和输出文件夹路径
+input_folder = r"D:\Desktop\data(add camera)\00_light_change\00_light_change\sawblade_data"
+output_folder = r"D:\Desktop\data(add camera)\00_light_change\00_light_change\masked_data03"
 
-def seg(image):
-    print("segment started...")
-    _model = YOLO("models/seg/best.pt")
-    _results = _model(image)
-    _gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _mask = np.zeros_like(_gray, dtype=np.uint8)
-    _h, _w = _gray.shape[0], _gray.shape[1]
-    for _result in _results:
+
+def seg(raw_image, conf_threshold=0.75):
+    """ mask image """
+    print("=======================================================================================================")
+    print("segment start...")
+    box_selection = YOLO("pt/seg/best.pt")
+    box_results = box_selection(raw_image)
+    gray_img = cv2.cvtColor(raw_image, cv2.COLOR_BGR2GRAY)  # 转灰度图
+    mask_box = np.zeros_like(gray_img, dtype=np.uint8)
+    _h, _w = gray_img.shape[0], gray_img.shape[1]
+
+    for _result in box_results:
         _boxes = _result.boxes
         for _box in _boxes:
-            if _box.conf.item() < 0.2:
+            if _box.conf.item() < conf_threshold:  # 置信度
                 continue
-            _xyxy = _box.xyxy
-            x1, y1 = max(int(_xyxy[0, 0] - 10), 0), max(int(_xyxy[0, 1] - 10), 0)
-            x2, y2 = min(int(_xyxy[0, 2] + 10), _w - 1), min(int(_xyxy[0, 3] + 10), _h - 1)
-            box_width, box_height = abs(x2 - x1), abs(y2 - y1)
-            if box_width / box_height < 1.5:
-                continue
-            _mask[y1:y2 + 1, x1:x2 + 1] = 255
-    _gray = np.bitwise_and(_mask, _gray)
-    _res = cv2.cvtColor(_gray, cv2.COLOR_GRAY2BGR)
+            x1, y1, x2, y2 = map(int, _box.xyxy[0])
+            x1, y1 = max(x1 - 10, 0), max(y1 - 10, 0)
+            x2, y2 = min(x2 + 10, _w - 1), min(y2 + 10, _h - 1)
+            # box_width, box_height = abs(x2 - x1), abs(y2 - y1)
+            # if box_width / box_height < 1.5:
+            #     continue
+            mask_box[y1:y2 + 1, x1:x2 + 1] = 255
+
+    gray_img = np.bitwise_and(mask_box, gray_img)
+    _res = cv2.cvtColor(gray_img, cv2.COLOR_GRAY2BGR)
     return _res
 
 
-def segmentDetect(image):
-    print("segment started...")
-    _model = YOLO("models/seg/best.pt")
-    _model_D = YOLO("pt/train3/weights/best.pt")
-    _results = _model(image)
-    _gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _mask = np.zeros_like(_gray, dtype=np.uint8)
-    _h, _w = _gray.shape[0], _gray.shape[1]
-    for _result in _results:
+def segmentDetect(raw_img, seg_model, det_model, conf_threshold=0.75):
+    """ mask image and return the detect results """
+    print("=======================================================================================================")
+    print("segment image...")
+    box_results = seg_model(raw_img)
+    gray_img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)  # RGB 2 gray
+    box_mask = np.zeros_like(gray_img, dtype=np.uint8)
+    _h, _w = gray_img.shape[0], gray_img.shape[1]
+
+    for _result in box_results:
         _boxes = _result.boxes
         for _box in _boxes:
-            if _box.conf.item() < 0.2:
+            if _box.conf.item() < conf_threshold:  # Confidence
                 continue
-            _xyxy = _box.xyxy
-            x1, y1 = max(int(_xyxy[0, 0] - 10), 0), max(int(_xyxy[0, 1] - 10), 0)
-            x2, y2 = min(int(_xyxy[0, 2] + 10), _w - 1), min(int(_xyxy[0, 3] + 10), _h - 1)
-            box_width, box_height = abs(x2 - x1), abs(y2 - y1)
-            if box_width / box_height < 1.5:
-                continue
-            _mask[y1:y2 + 1, x1:x2 + 1] = 255
-    _gray = np.bitwise_and(_mask, _gray)
-    _res = cv2.cvtColor(_gray, cv2.COLOR_GRAY2BGR)
-    _result = _model_D(_res)
-    return _result
+            x1, y1, x2, y2 = map(int, _box.xyxy[0])
+            x1, y1 = max(x1 - 10, 0), max(y1 - 10, 0)
+            x2, y2 = min(x2 + 10, _w - 1), min(y2 + 10, _h - 1)
+            # box_width, box_height = abs(x2 - x1), abs(y2 - y1)
+            # if box_width / box_height < 1.5:
+            #     continue
+            box_mask[y1:y2 + 1, x1:x2 + 1] = 255
+
+    masked_img = cv2.cvtColor(np.bitwise_and(box_mask, gray_img), cv2.COLOR_GRAY2BGR)  # gray 2 RGB
+    print("segment finished.\n")
+
+    print("detect start...")
+
+    # Saves cropped images of detections. Useful for dataset augmentation, analysis,
+    # or creating focused datasets for specific objects.
+    #
+    # detect_results = det_model(masked_img, save_crop=True)
+
+    detect_results = det_model(masked_img)
+    print("detect finished.\n")
+    return detect_results
 
 
 if __name__ == "__main__":
-    dirName = r"D:\sawBlade\sawBlade\image\01_good"
-    # cv2.namedWindow("pic", cv2.WINDOW_NORMAL)
-    fileNames = os.listdir(dirName)
-    for fileName in fileNames:
-        path = os.path.join(dirName, fileName)
-        print(f"path: {path}")
-        img = cv2.imread(path)
-        cv2.resizeWindow("pic", img.shape[1] // 2, img.shape[0] // 2)
-        results = segmentDetect(img)
-        print(results[0].boxes.cls)
-        res = results[0].plot()
-        cv2.imshow("pic", res)
-        cv2.waitKey()
+    print("system_02 start...\n")
+    box_selection_model = YOLO("pt/segmentation/best.pt")  # segment
+    detect_model = YOLO("pt/detection/best.pt")  # detect
 
-        # res = seg(img)
-        # saveDir = r"D:\sawBlade\sawBlade\img-seg\01"
-        # saveFile = os.path.join(saveDir, fileName)
-        # cv2.imwrite(saveFile, res)
-        # print("save:", saveFile, end='\n\n=========\n')
+    os.makedirs(output_folder, exist_ok=True)
+
+    # 遍历输入文件夹中的所有图像文件
+    for filename in os.listdir(input_folder):
+        if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff')):
+            # 构建输入文件和输出文件路径
+            input_path = os.path.join(input_folder, filename)
+            output_path = os.path.join(output_folder, filename)
+
+            # 读取输入图像
+            image = cv2.imread(input_path)
+
+            # 实例分割及缺陷检测
+            results = segmentDetect(image, box_selection_model, detect_model)
+            print(results)
+
+    print("\n mask finish!")

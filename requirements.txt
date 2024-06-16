@@ -1,0 +1,7 @@
+ultralytics
+opencv-python
+numpy
+torch
+queue
+PyQt5
+watchdog
