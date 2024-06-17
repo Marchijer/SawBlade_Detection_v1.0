@@ -12,9 +12,8 @@ from watchdog.events import FileSystemEventHandler
 from v8Detect import segmentDetect
 
 # import serial
-
-# ser = serial.Serial('COM7',19200,timeout = 1)
-
+#
+# ser = serial.Serial('COM7', 19200, bytesize=8, parity='N', stopbits=1, timeout=1)
 
 F1ImgGet = False
 F2ImgGet = False
@@ -118,13 +117,30 @@ class MainWindow(QMainWindow):
                 if bad_saw:
                     self.result.setStyleSheet("font-size: 25px; color: red; background-color: white;")
                     self.result.setText("有缺陷")
-                    # data = bytes.fromhex('FF00F1')
+                    # data = bytes.fromhex('FF00F100')
                     # ser.write(data)
                 else:
                     self.result.setStyleSheet("font-size: 25px; color: green; background-color: white;")
                     self.result.setText("无缺陷")
 
-            F1ImgGet, F2ImgGet = False, False
+            F1ImgGet, F2ImgGet, F3ImgGet = False, False, False
+
+    def delete_all_images(self, folder_path):
+        for filename in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, filename)
+            if os.path.isfile(file_path) and file_path.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp')):
+                try:
+                    os.remove(file_path)
+                    print(f"Deleted {file_path}")
+                except Exception as e:
+                    print(f"Failed to delete {file_path}: {e}")
+
+    def closeEvent(self, event):
+        # 清空文件夹中的所有图像文件
+        self.delete_all_images(self.folder_to_watch)
+        self.delete_all_images(self.folder_to_watch2)
+        self.delete_all_images(self.folder_to_watch3)
+        event.accept()  # 接受关闭事件
 
 
 # 判断该零件是否有缺陷
