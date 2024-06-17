@@ -27,7 +27,7 @@ This project utilizes YOLO models to perform defect detection and segmentation o
 
 2. Navigate to the project directory:
    ```sh
-   cd yourproject
+   cd path_to_your_project
    ```
 3. Install dependencies:
    ```sh
@@ -51,8 +51,8 @@ python main.py
 3. The GUI will display the latest processed images and the detection results.
 
 ## Features
-- Image segmentation using YOLO
-- Defect detection using YOLO
+- Defect segmentation using YOLO
+- Image detection using YOLO
 - Directory monitoring for new images
 - PyQt5-based GUI for displaying results
 
@@ -78,7 +78,9 @@ Ensure the following configurations are set correctly in the script:
 4. Push to the branch (`git push origin feature-branch`).
 5. Open a pull request.
 
-## Contact
-Maintainer Name - [mazhejie@hdu.edu.cn](mailto:mazhejie@hdu.edu.cn)
-GitHub: [https://github.com/Marchijer/SawBlade_Detection_v1.0.git](https://github.com/Marchijer/SawBlade_Detection_v1.0.git)
+## License
+This project is licensed under the MIT License - see the LICENSE file for details.
 
+## Contact
+Maintainer Contact - [Email](mazhejie@hdu.edu.cn)
+GitHub: [https://github.com/Marchijer/SawBlade_Detection_v1.0.git](https://github.com/Marchijer/SawBlade_Detection_v1.0.git)
